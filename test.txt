@@ -1,0 +1,11 @@
+== Dec 2019
+
+1st: 4h of gnome-glib macOS CI, 1h of misc-IRC
+
+2nd: depression, no work
+
+3rd: 15m of misc-email, 2h50m of clientname-description-of-work
+
+4th: sickness, no work
+
+5th: 30m of misc-email-and-IRC, 3h15m of mozilla-uwp-porting-of-cerbero at 1430
