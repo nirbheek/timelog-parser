@@ -110,18 +110,30 @@ def get_timef(proj, hours, minutes):
         return get_decimalf(proj, hours, minutes)
     return get_hhmmf(proj, hours, minutes)
 
-s = [(k, proj_hours[k]) for k in sorted(proj_hours, key=proj_hours.get, reverse=True)]
-print('# {}'.format(month))
-print('{:<20} {:^6} {:>8}'.format('Project', 'Hours', 'Cost'))
-total_minutes = 0
-total_cost = 0
-for proj, minutes in s:
-    total_minutes += minutes
+def split_minutes(minutes):
     hours = minutes // 60
     minutes = (minutes - (hours * 60))
-    cost = HOURLY_RATE * round(hours + minutes/60, ndigits=2)
-    total_cost += cost
-    print('{:<20} {} {:>8}'.format(proj, get_timef(proj, hours, minutes), cost))
-hours = total_minutes // 60
-minutes = (total_minutes - (hours * 60))
-print('{:<20} {} {:>8}'.format('Total:', get_timef('total', hours, minutes), total_cost))
+    return hours, minutes
+
+def get_cost(hours, minutes):
+    return HOURLY_RATE * round(hours + minutes/60, ndigits=2)
+
+def print_ascii_table(s):
+    global month
+    print('# {}'.format(month))
+    print('{:<20} {:^6} {:>8}'.format('Project', 'Hours', 'Cost'))
+    total_minutes = 0
+    total_cost = 0
+    for proj, minutes in s:
+        total_minutes += minutes
+        hours, minutes = split_minutes(minutes)
+        cost = get_cost(hours, minutes)
+        total_cost += cost
+        print('{:<20} {} {:>8}'.format(proj, get_timef(proj, hours, minutes), cost))
+    hours = total_minutes // 60
+    minutes = (total_minutes - (hours * 60))
+    print('{:<20} {} {:>8}'.format('Total:', get_timef('total', hours, minutes), total_cost))
+
+# Print it all
+s = [(k, proj_hours[k]) for k in sorted(proj_hours, key=proj_hours.get, reverse=True)]
+print_ascii_table(s)
