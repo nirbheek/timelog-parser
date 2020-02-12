@@ -5,12 +5,18 @@ import sys
 # We need the `regex` module instead of `re` for the branch reset feature
 import regex
 import argparse
+import configparser
 from pprint import pprint
 from decimal import Decimal
 
 SCRIPTDIR = os.path.normpath(os.path.dirname(__file__))
 ENTRY_TIME_RE = regex.compile(r'^(?|(?:([0-9.]+)h)(?:(\d+)m)?|(?:([0-9.]+)h)?(?:(\d+)m))$')
-HOURLY_RATE = 0
+
+config = configparser.ConfigParser()
+config.read('config.ini')
+PROJ_DESC = config['project-desc']
+CURRENCY = config['rates']['currency']
+HOURLY_RATE = int(config['rates']['self'])
 
 def entry_time_to_minutes(t):
     global ENTRY_TIME_RE
@@ -24,6 +30,13 @@ def entry_time_to_minutes(t):
     minutes += Decimal(h) * 60 if h is not None else 0
     return minutes
 
+class CommaSeparatedList(argparse.Action):
+    def __call__(self, parser, namespace, value, option_string=None):
+        current = getattr(namespace, self.dest) or []
+        # Convert comma-separated string to list
+        additional = [v for v in value.split(',')]
+        setattr(namespace, self.dest, current + additional)
+
 # Parse arguments
 parser = argparse.ArgumentParser(prog="parse-timelog")
 parser.add_argument('timelog_path', type=str, nargs='?', default=os.path.join(SCRIPTDIR, 'time-spent.txt'),
@@ -34,7 +47,13 @@ parser.add_argument('--project-detail', '-p', default=False, action='store_true'
                     help='Summarize by project detail in the summary, not just by project')
 parser.add_argument('--decimal', '-d', default=False, action='store_true',
                     help='Show hours in decimal instead of XXhYYm format')
+parser.add_argument('--html', '-m', default=False, action='store_true',
+                    help='Print HTML table rows instead of an ASCII table')
+parser.add_argument('--ignore-projects', action=CommaSeparatedList, default=None,
+                    help='Ignore this comma-separated list of projects')
 options = parser.parse_args()
+if not options.ignore_projects:
+    options.ignore_projects = []
 
 # Start parsing timelog
 timelog_f = open(options.timelog_path, 'r')
@@ -137,6 +156,51 @@ def print_ascii_table(s):
     minutes = (total_minutes - (hours * 60))
     print('{:<20} {} {:>8}'.format('Total:', get_timef('total', hours, minutes), total_cost))
 
+def print_html_rows(s):
+    global options
+    indent = ' ' * 12
+    tpl = \
+'''{indent}{prefix}<tr>
+{indent}  <td>{proj}</td>
+{indent}  <td>{rate}</td>
+{indent}  <td>{hours}</td>
+{indent}  <td>{cost}</td>
+{indent}</tr>{suffix}'''
+    total_cost = 0
+    ignored_minutes = 0
+    d = {'rate': HOURLY_RATE, 'indent': indent}
+    misc_proj = {'proj': [], 'minutes': 0}
+    for proj, minutes in s:
+        # If less than 5h spent on something, put it in the misc projects list
+        if minutes < 5 * 60:
+            misc_proj['proj'].append(proj)
+            misc_proj['minutes'] += minutes
+            continue
+        d['cost'] = get_cost(0, minutes)
+        if proj in options.ignore_projects:
+            d['prefix'] = '<!--'
+            d['suffix'] = '-->'
+            ignored_minutes += minutes
+        else:
+            d['prefix'] = d['suffix'] = ''
+            total_cost += d['cost']
+        d['proj'] = PROJ_DESC.get(proj, proj)
+        d['hours'] = hm_to_h(0, minutes)
+        print(tpl.format(**d))
+    # Print one more row for the misc proj we accumulated above
+    d['proj'] = PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
+    d['hours'] = hm_to_h(0, misc_proj['minutes'])
+    d['cost'] = get_cost(0, misc_proj['minutes'])
+    total_cost += d['cost']
+    print(tpl.format(**d))
+    print('Total: {}{}'.format(CURRENCY, total_cost))
+    if ignored_minutes > 0:
+        print('Ignored minutes: {}'.format(hm_to_h(0, ignored_minutes)))
+
 # Print it all
 s = [(k, proj_hours[k]) for k in sorted(proj_hours, key=proj_hours.get, reverse=True)]
-print_ascii_table(s)
+
+if options.html:
+    print_html_rows(s)
+else:
+    print_ascii_table(s)
