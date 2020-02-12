@@ -100,14 +100,17 @@ def get_hhmmf(proj, hours, minutes):
         return timef.format('', '{}m'.format(minutes))
     raise AssertionError('No hours or minutes for {!r}'.format(proj))
 
-def get_decimalf(proj, hours, minutes):
-    timef = '{:>6.2f}'
-    hours = hours + (minutes / 60)
+def hm_to_h(hours, minutes):
+    return round(hours + (minutes / 60), ndigits=2)
+
+def get_decimalf(hours, minutes):
+    timef = '{:>6}'
+    hours = hm_to_h(hours, minutes)
     return timef.format(hours)
 
 def get_timef(proj, hours, minutes):
     if options.decimal:
-        return get_decimalf(proj, hours, minutes)
+        return get_decimalf(hours, minutes)
     return get_hhmmf(proj, hours, minutes)
 
 def split_minutes(minutes):
