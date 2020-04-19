@@ -17,6 +17,7 @@ config.read('config.ini')
 PROJ_DESC = config['project-desc']
 CURRENCY = config['rates']['currency']
 HOURLY_RATE = int(config['rates']['self'])
+COMPANY_RATE = int(config['rates']['company'])
 
 def entry_time_to_minutes(t):
     global ENTRY_TIME_RE
@@ -49,6 +50,8 @@ parser.add_argument('--decimal', '-d', default=False, action='store_true',
                     help='Show hours in decimal instead of XXhYYm format')
 parser.add_argument('--html', '-m', default=False, action='store_true',
                     help='Print HTML table rows instead of an ASCII table')
+parser.add_argument('--company', '-c', default=False, action='store_true',
+                    help='Print income for the company')
 parser.add_argument('--ignore-projects', action=CommaSeparatedList, default=None,
                     help='Ignore this comma-separated list of projects')
 options = parser.parse_args()
@@ -138,7 +141,8 @@ def split_minutes(minutes):
     return hours, minutes
 
 def get_cost(hours, minutes):
-    return HOURLY_RATE * round(hours + minutes/60, ndigits=2)
+    hourly_rate = HOURLY_RATE if not options.company else COMPANY_RATE
+    return hourly_rate * round(hours + minutes/60, ndigits=2)
 
 def print_ascii_table(s):
     global month
@@ -147,6 +151,8 @@ def print_ascii_table(s):
     total_minutes = 0
     total_cost = 0
     for proj, minutes in s:
+        if options.company and proj in PROJ_DESC:
+            continue
         total_minutes += minutes
         hours, minutes = split_minutes(minutes)
         cost = get_cost(hours, minutes)
