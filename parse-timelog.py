@@ -116,7 +116,7 @@ for day in days:
         proj_hours[proj] += entry_time_to_minutes(entry_time)
 
 def get_hhmmf(proj, hours, minutes):
-    timef = '{:>3}{:<3}'
+    timef = '{:>4}{:<3}'
     if hours and minutes:
         return timef.format('{}h'.format(hours), '{}m'.format(minutes))
     elif hours:
@@ -129,7 +129,7 @@ def hm_to_h(hours, minutes):
     return round(hours + (minutes / 60), ndigits=2)
 
 def get_decimalf(hours, minutes):
-    timef = '{:>6}'
+    timef = '{:>7}'
     hours = hm_to_h(hours, minutes)
     return timef.format(hours)
 
@@ -150,7 +150,7 @@ def get_cost(hours, minutes):
 def print_ascii_table(s):
     global month
     print('# {}'.format(month))
-    print('{:<20} {:^6} {:>8}'.format('Project', 'Hours', 'Cost'))
+    print('{:<20} {:^7} {:>8}'.format('Project', 'Hours', 'Cost'))
     total_minutes = 0
     total_cost = 0
     for proj, minutes in s:
