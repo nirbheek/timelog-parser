@@ -83,7 +83,10 @@ for line in timelog_f:
     if line[:-1]:
         month_entries.append(line[:-1])
 
-month, days = timelog_monthly[options.month_idx - 1]
+month_idx = 0
+if len(timelog_monthly) > 1:
+    month_idx = options.month_idx - 1
+month, days = timelog_monthly[month_idx]
 # format:
 # {
 #   'project1': hours,
