@@ -181,7 +181,7 @@ def print_html_rows(s):
     misc_proj = {'proj': [], 'minutes': 0}
     for proj, minutes in s:
         # If less than 5h spent on something, put it in the misc projects list
-        if minutes < 5 * 60:
+        if proj not in PROJ_DESC and minutes < 5 * 60:
             misc_proj['proj'].append(proj)
             misc_proj['minutes'] += minutes
             continue
