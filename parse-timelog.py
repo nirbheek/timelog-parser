@@ -15,7 +15,9 @@ ENTRY_TIME_RE = regex.compile(r'^(?|(?:([0-9.]+)h)(?:(\d+)m)?|(?:([0-9.]+)h)?(?:
 config = configparser.ConfigParser()
 config.read('config.ini')
 HTML_ALIASES = config['html-aliases']
-PROJ_DESC = config['project-desc']
+INTERNAL_PROJ_DESC = config['internal-project-desc']
+PROJ_DESC = dict(INTERNAL_PROJ_DESC)
+PROJ_DESC.update(config['project-desc'])
 CURRENCY = config['rates']['currency']
 HOURLY_RATE = int(config['rates']['self'])
 COMPANY_RATE = int(config['rates']['company'])
@@ -157,7 +159,7 @@ def print_ascii_table(s):
     total_minutes = 0
     total_cost = 0
     for proj, minutes in s:
-        if options.company and proj in PROJ_DESC:
+        if options.company and proj in INTERNAL_PROJ_DESC:
             continue
         total_minutes += minutes
         hours, minutes = split_minutes(minutes)
@@ -184,7 +186,7 @@ def print_html_rows(s):
     misc_proj = {'proj': [], 'minutes': 0}
     for proj, minutes in s:
         # If less than 5h spent on something, put it in the misc projects list
-        if proj not in PROJ_DESC and minutes < 5 * 60:
+        if proj not in INTERNAL_PROJ_DESC and minutes < 5 * 60:
             misc_proj['proj'].append(proj)
             misc_proj['minutes'] += minutes
             continue
@@ -201,7 +203,7 @@ def print_html_rows(s):
         print(tpl.format(**d))
     # Print one more row for the misc proj we accumulated above
     d['prefix'] = d['suffix'] = ''
-    d['proj'] = PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
+    d['proj'] = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
     d['hours'] = hm_to_h(0, misc_proj['minutes'])
     d['cost'] = get_cost(0, misc_proj['minutes'])
     total_cost += d['cost']
