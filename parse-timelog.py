@@ -14,6 +14,7 @@ ENTRY_TIME_RE = regex.compile(r'^(?|(?:([0-9.]+)h)(?:(\d+)m)?|(?:([0-9.]+)h)?(?:
 
 config = configparser.ConfigParser()
 config.read('config.ini')
+HTML_ALIASES = config['html-aliases']
 PROJ_DESC = config['project-desc']
 CURRENCY = config['rates']['currency']
 HOURLY_RATE = int(config['rates']['self'])
@@ -111,6 +112,8 @@ for day in days:
             proj = proj.split(' at ', maxsplit=1)[0]
         if not options.project_detail:
             proj = proj.split(sep='-', maxsplit=1)[0]
+        if options.html and proj in HTML_ALIASES:
+            proj = HTML_ALIASES[proj]
         if proj not in proj_hours:
             proj_hours[proj] = 0
         proj_hours[proj] += entry_time_to_minutes(entry_time)
