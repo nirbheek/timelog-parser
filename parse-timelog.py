@@ -186,17 +186,18 @@ def print_html_rows(s):
             misc_proj['minutes'] += minutes
             continue
         d['cost'] = get_cost(0, minutes)
+        d['prefix'] = d['suffix'] = ''
         if proj in options.ignore_projects:
             d['prefix'] = '<!--'
             d['suffix'] = '-->'
             ignored_minutes += minutes
         else:
-            d['prefix'] = d['suffix'] = ''
             total_cost += d['cost']
         d['proj'] = PROJ_DESC.get(proj, proj)
         d['hours'] = hm_to_h(0, minutes)
         print(tpl.format(**d))
     # Print one more row for the misc proj we accumulated above
+    d['prefix'] = d['suffix'] = ''
     d['proj'] = PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
     d['hours'] = hm_to_h(0, misc_proj['minutes'])
     d['cost'] = get_cost(0, misc_proj['minutes'])
@@ -204,7 +205,7 @@ def print_html_rows(s):
     print(tpl.format(**d))
     print('Total: {}{}'.format(CURRENCY, total_cost))
     if ignored_minutes > 0:
-        print('Ignored minutes: {}'.format(hm_to_h(0, ignored_minutes)))
+        print('Ignored hours: {}'.format(hm_to_h(0, ignored_minutes)))
 
 # Print it all
 s = [(k, proj_hours[k]) for k in sorted(proj_hours, key=proj_hours.get, reverse=True)]
