@@ -202,12 +202,13 @@ def print_html_rows(s):
         d['hours'] = hm_to_h(0, minutes)
         print(tpl.format(**d))
     # Print one more row for the misc proj we accumulated above
-    d['prefix'] = d['suffix'] = ''
-    d['proj'] = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
-    d['hours'] = hm_to_h(0, misc_proj['minutes'])
-    d['cost'] = get_cost(0, misc_proj['minutes'])
-    total_cost += d['cost']
-    print(tpl.format(**d))
+    if misc_proj['proj']:
+        d['prefix'] = d['suffix'] = ''
+        d['proj'] = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
+        d['hours'] = hm_to_h(0, misc_proj['minutes'])
+        d['cost'] = get_cost(0, misc_proj['minutes'])
+        total_cost += d['cost']
+        print(tpl.format(**d))
     print('Total: {}{}'.format(CURRENCY, total_cost))
     if ignored_minutes > 0:
         print('Ignored hours: {}'.format(hm_to_h(0, ignored_minutes)))
