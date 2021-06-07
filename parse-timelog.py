@@ -19,8 +19,8 @@ INTERNAL_PROJ_DESC = config['internal-project-desc']
 PROJ_DESC = dict(INTERNAL_PROJ_DESC)
 PROJ_DESC.update(config['project-desc'])
 CURRENCY = config['rates']['currency']
-HOURLY_RATE = int(config['rates']['self'])
-COMPANY_RATE = int(config['rates']['company'])
+HOURLY_RATE = Decimal(config['rates']['self'])
+COMPANY_RATE = Decimal(config['rates']['company'])
 
 def entry_time_to_minutes(t):
     global ENTRY_TIME_RE
@@ -183,7 +183,7 @@ def print_html_rows(s):
     total_cost = 0
     ignored_minutes = 0
     d = {'rate': HOURLY_RATE, 'indent': indent}
-    misc_proj = {'proj': [], 'minutes': 0}
+    misc_proj = {'proj': [], 'minutes': Decimal(0)}
     for proj, minutes in s:
         # If less than 5h spent on something, put it in the misc projects list
         if proj not in INTERNAL_PROJ_DESC and minutes < 5 * 60:
