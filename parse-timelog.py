@@ -185,8 +185,8 @@ def print_html_rows(s):
     d = {'rate': HOURLY_RATE, 'indent': indent}
     misc_proj = {'proj': [], 'minutes': Decimal(0)}
     for proj, minutes in s:
-        # If less than 5h spent on something, put it in the misc projects list
-        if proj not in INTERNAL_PROJ_DESC and minutes < 5 * 60:
+        # If less than 4h spent on something, put it in the misc projects list
+        if proj not in INTERNAL_PROJ_DESC and minutes < 3 * 60:
             misc_proj['proj'].append(proj)
             misc_proj['minutes'] += minutes
             continue
