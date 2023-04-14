@@ -5,6 +5,8 @@ import sys
 # We need the `regex` module instead of `re` for the branch reset feature
 import regex
 import argparse
+import calendar
+import datetime
 import configparser
 from pprint import pprint
 from decimal import Decimal
@@ -14,13 +16,25 @@ ENTRY_TIME_RE = regex.compile(r'^(?|(?:([0-9.]+)h)(?:(\d+)m)?|(?:([0-9.]+)h)?(?:
 
 config = configparser.ConfigParser()
 config.read('config.ini')
-HTML_ALIASES = config['html-aliases']
+try:
+    PROJECT_ALIASES = config['project-aliases']
+except KeyError:
+    PROJECT_ALIASES = config['html-aliases']
 INTERNAL_PROJ_DESC = config['internal-project-desc']
+try:
+    INVOICE = config['invoice']
+except KeyError:
+    INVOICE = None
+
 PROJ_DESC = dict(INTERNAL_PROJ_DESC)
 PROJ_DESC.update(config['project-desc'])
 CURRENCY = config['rates']['currency']
 HOURLY_RATE = Decimal(config['rates']['self'])
 COMPANY_RATE = Decimal(config['rates']['company'])
+try:
+    CURRENCY_NAME = config['rates']['currency-name']
+except KeyError:
+    CURRENCY_NAME = ''
 
 def entry_time_to_minutes(t):
     global ENTRY_TIME_RE
@@ -53,6 +67,8 @@ parser.add_argument('--decimal', '-d', default=False, action='store_true',
                     help='Show hours in decimal instead of XXhYYm format')
 parser.add_argument('--html', '-m', default=False, action='store_true',
                     help='Print HTML table rows instead of an ASCII table')
+parser.add_argument('--csv', '-s', default=False, action='store_true',
+                    help='Print CSV instead of an ASCII table')
 parser.add_argument('--company', '-c', default=False, action='store_true',
                     help='Print income for the company')
 parser.add_argument('--ignore-projects', action=CommaSeparatedList, default=None,
@@ -71,17 +87,17 @@ timelog_f = open(options.timelog_path, 'r')
 #   ...,
 # ]
 timelog_monthly = []
-month = None
+month_desc = None
 # Split timelog into monthwise entries
 for line in timelog_f:
     # First, skip starting of file which is in a different format till we get
     # a month entry, after which the format is more consistent
-    if not month and not line.startswith('== '):
+    if not month_desc and not line.startswith('== '):
         continue
     if line.startswith('== '):
-        month = line[3:-1]
+        month_desc = line[3:-1]
         month_entries = []
-        timelog_monthly.append((month, month_entries))
+        timelog_monthly.append((month_desc, month_entries))
         continue
     if line[:-1]:
         month_entries.append(line[:-1])
@@ -89,7 +105,7 @@ for line in timelog_f:
 month_idx = 0
 if len(timelog_monthly) > 1:
     month_idx = options.month_idx - 1
-month, days = timelog_monthly[month_idx]
+month_desc, lines = timelog_monthly[month_idx]
 # format:
 # {
 #   'project1': hours,
@@ -97,28 +113,45 @@ month, days = timelog_monthly[month_idx]
 #   ...,
 # }
 proj_hours = {}
+# format:
+# {
+#   'expense1': cost,
+#   'expense2': cost,
+#   ...,
+# }
+expenses = {}
 # Aggregate per-category hours from this month's entries
-for day in days:
-    entries = day.split(': ', maxsplit=1)[1].split(', ')
-    for entry in entries:
-        try:
-            ret = entry.split(' of ', maxsplit=1)
-            if len(ret) != 2:
-                print('Ignoring invalid/unknown entry {!r}'.format(entry))
-                continue
-            entry_time, proj = ret
-        except ValueError:
-            print(entry)
-            raise
-        if ' at ' in proj:
-            proj = proj.split(' at ', maxsplit=1)[0]
-        if not options.project_detail:
-            proj = proj.split(sep='-', maxsplit=1)[0]
-        if options.html and proj in HTML_ALIASES:
-            proj = HTML_ALIASES[proj]
-        if proj not in proj_hours:
-            proj_hours[proj] = 0
-        proj_hours[proj] += entry_time_to_minutes(entry_time)
+for line in lines:
+    desc, items = line.split(': ', maxsplit=1)
+    if desc.startswith('expense'):
+        expense, cost = items.rsplit(': ', maxsplit=1)
+        if ', ' in cost:
+            unit_amount, quantity = cost.split(', ')
+            expenses[expense] = [unit_amount, quantity]
+        else:
+            amount = Decimal(cost)
+            expenses[expense] = [amount, 1]
+    else:
+        entries = items.split(', ')
+        for entry in entries:
+            try:
+                ret = entry.split(' of ', maxsplit=1)
+                if len(ret) != 2:
+                    print('Ignoring invalid/unknown entry {!r}'.format(entry))
+                    continue
+                entry_time, proj = ret
+            except ValueError:
+                print(entry)
+                raise
+            if ' at ' in proj:
+                proj = proj.split(' at ', maxsplit=1)[0]
+            if not options.project_detail:
+                proj = proj.split(sep='-', maxsplit=1)[0]
+            if (options.html or options.csv) and proj in PROJECT_ALIASES:
+                proj = PROJECT_ALIASES[proj]
+            if proj not in proj_hours:
+                proj_hours[proj] = 0
+            proj_hours[proj] += entry_time_to_minutes(entry_time)
 
 def get_hhmmf(proj, hours, minutes):
     timef = '{:>4}{:<3}'
@@ -148,13 +181,16 @@ def split_minutes(minutes):
     minutes = (minutes - (hours * 60))
     return hours, minutes
 
+def get_hourly_rate():
+    return HOURLY_RATE if not options.company else COMPANY_RATE
+
 def get_cost(hours, minutes):
-    hourly_rate = HOURLY_RATE if not options.company else COMPANY_RATE
-    return hourly_rate * round(hours + minutes/60, ndigits=2)
+    hourly_rate = get_hourly_rate()
+    return hourly_rate * hm_to_h(hours, minutes)
 
 def print_ascii_table(s):
-    global month
-    print('# {}'.format(month))
+    global month_desc
+    print('# {}'.format(month_desc))
     print('{:<20} {:^7} {:>8}'.format('Project', 'Hours', 'Cost'))
     total_minutes = 0
     total_cost = 0
@@ -170,19 +206,89 @@ def print_ascii_table(s):
     minutes = (total_minutes - (hours * 60))
     print('{:<20} {} {:>8}'.format('Total:', get_timef('total', hours, minutes), total_cost))
 
-def print_html_rows(s):
+def print_html_rows(s, e):
     global options
     indent = ' ' * 12
     tpl = \
 '''{indent}{prefix}<tr>
-{indent}  <td>{proj}</td>
-{indent}  <td>{rate}</td>
-{indent}  <td>{hours}</td>
-{indent}  <td>{cost}</td>
+{indent}  <td>{desc}</td>
+{indent}  <td>{unit_amount}</td>
+{indent}  <td>{quantity}</td>
+{indent}  <td>{amount}</td>
 {indent}</tr>{suffix}'''
-    total_cost = 0
+    total_amount = 0
     ignored_minutes = 0
-    d = {'rate': HOURLY_RATE, 'indent': indent}
+    d = {'unit_amount': HOURLY_RATE, 'indent': indent}
+    misc_proj = {'desc': [], 'minutes': Decimal(0)}
+    for proj, minutes in s:
+        # If less than 4h spent on something, put it in the misc projects list
+        if proj not in INTERNAL_PROJ_DESC and minutes < 3 * 60:
+            misc_proj['desc'].append(proj)
+            misc_proj['minutes'] += minutes
+            continue
+        d['amount'] = get_cost(0, minutes)
+        d['prefix'] = d['suffix'] = ''
+        if proj in options.ignore_projects:
+            d['prefix'] = '<!--'
+            d['suffix'] = '-->'
+            ignored_minutes += minutes
+        else:
+            total_amount += d['amount']
+        d['desc'] = PROJ_DESC.get(proj, proj)
+        d['quantity'] = hm_to_h(0, minutes)
+        print(tpl.format(**d))
+    # Print one more row for the misc proj we accumulated above
+    if misc_proj['desc']:
+        d['prefix'] = d['suffix'] = ''
+        d['desc'] = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['desc'])
+        d['quantity'] = hm_to_h(0, misc_proj['minutes'])
+        d['amount'] = get_cost(0, misc_proj['minutes'])
+        total_amount += d['amount']
+        print(tpl.format(**d))
+    print()
+    # Print expenses
+    for desc, (unit_amount, quantity) in e.items():
+        d['desc'] = desc
+        d['unit_amount'] = unit_amount
+        d['quantity'] = quantity
+        d['amount'] = unit_amount * quantity
+        total_amount += d['amount']
+        print(tpl.format(**d))
+    print('Total: {}{}'.format(CURRENCY, total_amount))
+    if ignored_minutes > 0:
+        print('Ignored hours: {}'.format(hm_to_h(0, ignored_minutes)))
+
+def get_row(desc, unit_amount, quantity, account_code, tax_type, invoice_date=None, total_amount=None):
+    row = [INVOICE['name']]
+    optional_config_fields = [
+        'email', 'address1', 'address2', 'address3', 'address4',
+        'address-city', 'address-region', 'address-postalcode',
+        'address-country',
+    ]
+    for field in optional_config_fields:
+        row.append(INVOICE.get(field, ''))
+    # Invoice number
+    row.append(f'Invoice 001-{invoice_date.year}-{invoice_date.month:02d}')
+    # Invoice date
+    row.append(invoice_date.strftime('%d/%m/%Y'))
+    # Due date is + 60 days
+    due_date = invoice_date + datetime.timedelta(days=60)
+    row.append(due_date.strftime('%d/%m/%Y'))
+    # Total amount
+    row.append(str(total_amount))
+    # InventoryItemCode
+    row.append('')
+    row += [desc, quantity, unit_amount, account_code, tax_type]
+    # TaxAmount,TrackingName1,TrackingOption1,TrackingName2,TrackingOption2,Currency
+    row += ['', '', '', '', '', CURRENCY_NAME]
+    return row
+
+def write_csv_rows(s, e):
+    import csv
+    global options
+    rows = []
+    total_amount = Decimal(0)
+    rate = get_hourly_rate()
     misc_proj = {'proj': [], 'minutes': Decimal(0)}
     for proj, minutes in s:
         # If less than 4h spent on something, put it in the misc projects list
@@ -190,33 +296,59 @@ def print_html_rows(s):
             misc_proj['proj'].append(proj)
             misc_proj['minutes'] += minutes
             continue
-        d['cost'] = get_cost(0, minutes)
-        d['prefix'] = d['suffix'] = ''
-        if proj in options.ignore_projects:
-            d['prefix'] = '<!--'
-            d['suffix'] = '-->'
-            ignored_minutes += minutes
-        else:
-            total_cost += d['cost']
-        d['proj'] = PROJ_DESC.get(proj, proj)
-        d['hours'] = hm_to_h(0, minutes)
-        print(tpl.format(**d))
-    # Print one more row for the misc proj we accumulated above
+        quantity = hm_to_h(0, minutes)
+        desc = 'Software development services: ' + PROJ_DESC.get(proj, proj)
+        rows.append([desc, rate, quantity, '330', 'Reverse Charge Expenses (20%)'])
+        total_amount += rate * quantity
     if misc_proj['proj']:
-        d['prefix'] = d['suffix'] = ''
-        d['proj'] = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
-        d['hours'] = hm_to_h(0, misc_proj['minutes'])
-        d['cost'] = get_cost(0, misc_proj['minutes'])
-        total_cost += d['cost']
-        print(tpl.format(**d))
-    print('Total: {}{}'.format(CURRENCY, total_cost))
-    if ignored_minutes > 0:
-        print('Ignored hours: {}'.format(hm_to_h(0, ignored_minutes)))
+        desc = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
+        desc = 'Software development services: ' + desc
+        quantity = hm_to_h(0, misc_proj['minutes'])
+        rows.append([desc, rate, quantity, '330', 'Reverse Charge Expenses (20%)'])
+        total_amount += rate * quantity
+    for desc, (unit_amount, quantity) in e.items():
+        accounting_code = None
+        if 'Bank' in desc:
+            acc_code = '404'
+            acc_desc = 'No VAT'
+        else:
+            acc_code = ''
+            acc_desc = ''
+        rows.append([desc, unit_amount, quantity, acc_code, acc_desc])
+        total_amount += unit_amount * quantity
+
+    # Get the invoice date
+    month, year = month_desc.split(' ', maxsplit=1)
+    year = int(year)
+    if len(month) == 3:
+        month = datetime.datetime.strptime(month, '%b').month
+    else:
+        month = datetime.datetime.strptime(month, '%B').month
+    day = calendar.monthrange(year, month)[1]
+    invoice_date = datetime.date(year, month, day)
+
+    fname = '{}_{}.csv'.format(INVOICE['name'].split()[0], invoice_date.strftime('%Y-%m-%d'))
+    with open(fname, 'w') as f:
+        w = csv.writer(f)
+        w.writerow([
+            'ContactName', 'EmailAddress', 'POAddressLine1', 'POAddressLine2',
+            'POAddressLine3', 'POAddressLine4', 'POCity', 'PORegion',
+            'POPostalCode', 'POCountry', 'InvoiceNumber', 'InvoiceDate', 'DueDate',
+            'Total', 'InventoryItemCode', 'Description', 'Quantity', 'UnitAmount',
+            'AccountCode', 'TaxType', 'TaxAmount', 'TrackingName1',
+            'TrackingOption1', 'TrackingName2', 'TrackingOption2', 'Currency'
+        ])
+        for each in rows:
+            w.writerow(get_row(*each, invoice_date=invoice_date, total_amount=total_amount))
+    print(f'Wrote to {fname}', file=sys.stderr)
+    print(f'Total amount: {total_amount}', file=sys.stderr)
 
 # Print it all
 s = [(k, proj_hours[k]) for k in sorted(proj_hours, key=proj_hours.get, reverse=True)]
 
 if options.html:
-    print_html_rows(s)
+    print_html_rows(s, expenses)
+elif options.csv:
+    write_csv_rows(s, expenses)
 else:
     print_ascii_table(s)

@@ -9,7 +9,7 @@ $ pip3 install --user regex
 Timelog parser for a timelog text file in the following format:
 
 ```
-== <monthname_year>
+== Month YYYY
 
 date1: 2h30m of taskname-description, 15m of taskname-description2, 10m of taskname2-description3
 
@@ -17,7 +17,10 @@ date2: 2h30m of taskname-description, 15m of taskname-description2, 10m of taskn
 
 ...
 
-== <monthname2_year>
+expense: description of expense: cost
+expense: description2 of expense2: unit_cost, quantity
+
+== Month YYYY
 
 ...
 ```
