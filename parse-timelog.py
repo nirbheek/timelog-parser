@@ -125,6 +125,9 @@ for line in lines:
     desc, items = line.split(': ', maxsplit=1)
     if desc.startswith('expense'):
         expense, cost = items.rsplit(': ', maxsplit=1)
+        # Skip any comments
+        if '#' in cost:
+            cost = cost.split('#')[0]
         if ', ' in cost:
             unit_amount, quantity = cost.split(', ')
             expenses[expense] = [unit_amount, quantity]
