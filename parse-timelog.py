@@ -243,7 +243,10 @@ def print_html_rows(s, e):
     # Print one more row for the misc proj we accumulated above
     if misc_proj['desc']:
         d['prefix'] = d['suffix'] = ''
-        d['desc'] = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['desc'])
+        mp = misc_proj['desc']
+        if len(mp) > 3:
+            mp = mp[:3] + ['etc']
+        d['desc'] = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(mp)
         d['quantity'] = hm_to_h(0, misc_proj['minutes'])
         d['amount'] = get_cost(0, misc_proj['minutes'])
         total_amount += d['amount']
