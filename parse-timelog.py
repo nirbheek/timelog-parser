@@ -227,7 +227,7 @@ def print_html_rows(s, b, e):
 {indent}  <td>{desc}</td>
 {indent}  <td>{unit_amount}</td>
 {indent}  <td>{quantity}</td>
-{indent}  <td>{amount}</td>
+{indent}  <td>{amount:.2f}</td>
 {indent}</tr>{suffix}'''
     total_amount = 0
     ignored_minutes = 0
