@@ -115,6 +115,13 @@ month_desc, lines = timelog_monthly[month_idx]
 proj_hours = {}
 # format:
 # {
+#   'bonus1': amount,
+#   'bonus2': amount,
+#   ...,
+# }
+bonus_amounts = {}
+# format:
+# {
 #   'expense1': cost,
 #   'expense2': cost,
 #   ...,
@@ -130,10 +137,13 @@ for line in lines:
             cost = cost.split('#')[0]
         if ', ' in cost:
             unit_amount, quantity = cost.split(', ')
-            expenses[expense] = [unit_amount, quantity]
+            expenses[expense] = [Decimal(unit_amount), int(quantity)]
         else:
             amount = Decimal(cost)
             expenses[expense] = [amount, 1]
+    elif desc.startswith('bonus'):
+        bonus, amount = items.rsplit(': ', maxsplit=1)
+        bonus_amounts[bonus] = [Decimal(amount), 1]
     else:
         entries = items.split(', ')
         for entry in entries:
@@ -209,7 +219,7 @@ def print_ascii_table(s):
     minutes = (total_minutes - (hours * 60))
     print('{:<20} {} {:>8}'.format('Total:', get_timef('total', hours, minutes), total_cost))
 
-def print_html_rows(s, e):
+def print_html_rows(s, b, e):
     global options
     indent = ' ' * 12
     tpl = \
@@ -251,6 +261,14 @@ def print_html_rows(s, e):
         d['amount'] = get_cost(0, misc_proj['minutes'])
         total_amount += d['amount']
         print(tpl.format(**d))
+    # Print bonuses (if any)
+    for desc, (unit_amount, quantity) in b.items():
+        d['desc'] = desc
+        d['unit_amount'] = unit_amount
+        d['quantity'] = quantity
+        d['amount'] = unit_amount * quantity
+        total_amount += d['amount']
+        print(tpl.format(**d))
     print()
     # Print expenses
     for desc, (unit_amount, quantity) in e.items():
@@ -289,7 +307,7 @@ def get_row(desc, unit_amount, quantity, account_code, tax_type, invoice_date=No
     row += ['', '', '', '', '', CURRENCY_NAME]
     return row
 
-def write_csv_rows(s, e):
+def write_csv_rows(s, b, e):
     import csv
     global options
     rows = []
@@ -312,6 +330,14 @@ def write_csv_rows(s, e):
         quantity = hm_to_h(0, misc_proj['minutes'])
         rows.append([desc, rate, quantity, '330', 'Reverse Charge Expenses (20%)'])
         total_amount += rate * quantity
+    # Print bonuses
+    for desc, (unit_amount, quantity) in b.items():
+        desc = 'Software development services: ' + desc
+        acc_code = '330'
+        acc_desc = 'Reverse Charge Expenses (20%)'
+        rows.append([desc, unit_amount, quantity, acc_code, acc_desc])
+        total_amount += unit_amount * quantity
+    # Print expenses
     for desc, (unit_amount, quantity) in e.items():
         accounting_code = None
         if 'Bank' in desc:
@@ -353,8 +379,8 @@ def write_csv_rows(s, e):
 s = [(k, proj_hours[k]) for k in sorted(proj_hours, key=proj_hours.get, reverse=True)]
 
 if options.html:
-    print_html_rows(s, expenses)
+    print_html_rows(s, bonus_amounts, expenses)
 elif options.csv:
-    write_csv_rows(s, expenses)
+    write_csv_rows(s, bonus_amounts, expenses)
 else:
     print_ascii_table(s)
