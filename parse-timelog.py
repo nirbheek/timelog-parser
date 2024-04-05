@@ -208,7 +208,7 @@ def print_ascii_table(s):
     total_minutes = 0
     total_cost = 0
     for proj, minutes in s:
-        if options.company and proj in INTERNAL_PROJ_DESC:
+        if options.company and proj in INTERNAL_PROJ_DESC or 'NOT&M' in proj or 'NOTM' in proj:
             continue
         total_minutes += minutes
         hours, minutes = split_minutes(minutes)
