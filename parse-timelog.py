@@ -216,9 +216,13 @@ def print_ascii_table(s):
         cost = get_cost(hours, minutes)
         total_cost += cost
         print('{:<20} {} {:>8}'.format(proj, get_timef(proj, hours, minutes), cost))
-    hours = total_minutes // 60
-    minutes = (total_minutes - (hours * 60))
-    print('{:<20} {} {:>8}'.format('Total:', get_timef('total', hours, minutes), total_cost))
+    hours, minutes = split_minutes(total_minutes)
+    # The total is approximate here because the way we add up "misc client
+    # projects" is different here compared to csv and html row printing. Here
+    # we calculate the cost of each item immediately and add it to the total
+    # cost, whereas there we aggregate the minutes spent on each item and
+    # convert it to cost later.
+    print('{:<20} {} {:>8}'.format('Total (approx):', get_timef('total', hours, minutes), total_cost))
 
 def print_html_rows(s, b, e):
     global options
