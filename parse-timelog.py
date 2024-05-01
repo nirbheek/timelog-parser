@@ -13,6 +13,7 @@ from decimal import Decimal
 
 SCRIPTDIR = os.path.normpath(os.path.dirname(__file__))
 ENTRY_TIME_RE = regex.compile(r'^(?|(?:([0-9.]+)h)(?:(\d+)m)?|(?:([0-9.]+)h)?(?:(\d+)m))$')
+ENTRY_COLLAPSE_THRESHOLD = 4 * 60
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -235,7 +236,7 @@ def print_html_rows(s, b, e):
     misc_proj = {'desc': [], 'minutes': Decimal(0)}
     for proj, minutes in s:
         # If less than 4h spent on something, put it in the misc projects list
-        if proj not in INTERNAL_PROJ_DESC and minutes < 4 * 60:
+        if proj not in INTERNAL_PROJ_DESC and minutes < ENTRY_COLLAPSE_THRESHOLD:
             misc_proj['desc'].append(proj)
             misc_proj['minutes'] += minutes
             continue
@@ -316,7 +317,7 @@ def write_csv_rows(s, b, e):
     misc_proj = {'proj': [], 'minutes': Decimal(0)}
     for proj, minutes in s:
         # If less than 4h spent on something, put it in the misc projects list
-        if proj not in INTERNAL_PROJ_DESC and minutes < 3 * 60:
+        if proj not in INTERNAL_PROJ_DESC and minutes < ENTRY_COLLAPSE_THRESHOLD:
             misc_proj['proj'].append(proj)
             misc_proj['minutes'] += minutes
             continue
@@ -325,7 +326,10 @@ def write_csv_rows(s, b, e):
         rows.append([desc, rate, quantity, '330', 'Reverse Charge Expenses (20%)'])
         total_amount += rate * quantity
     if misc_proj['proj']:
-        desc = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(misc_proj['proj'])
+        mp = misc_proj['proj']
+        if len(mp) > 3:
+            mp = mp[:3] + ['etc']
+        desc = INTERNAL_PROJ_DESC['-misc_proj'] + ' ' + ', '.join(mp)
         desc = 'Software development services: ' + desc
         quantity = hm_to_h(0, misc_proj['minutes'])
         rows.append([desc, rate, quantity, '330', 'Reverse Charge Expenses (20%)'])
