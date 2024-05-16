@@ -202,6 +202,15 @@ def get_cost(hours, minutes):
     hourly_rate = get_hourly_rate()
     return hourly_rate * hm_to_h(hours, minutes)
 
+def is_travel_expense(desc):
+    kws = ('travel', 'cab', 'flight', 'taxi', 'insurance', 'conf', 'hackfest',
+           'ticket', 'hotel', 'food', 'visa', 'vfs')
+    desc = desc.lower()
+    for kw in kws:
+        if kw in desc:
+            return True
+    return False
+
 def print_ascii_table(s):
     global month_desc
     print('# {}'.format(month_desc))
@@ -351,9 +360,12 @@ def write_csv_rows(s, b, e):
         if 'Bank' in desc:
             acc_code = '404'
             acc_desc = 'No VAT'
+        elif is_travel_expense(desc):
+            acc_code = '494'
+            acc_desc = 'No VAT'
         else:
-            acc_code = ''
-            acc_desc = ''
+            acc_code = '464' # Default to electronics
+            acc_desc = 'No VAT'
         rows.append([desc, unit_amount, quantity, acc_code, acc_desc])
         total_amount += unit_amount * quantity
 
@@ -368,6 +380,9 @@ def write_csv_rows(s, b, e):
     invoice_date = datetime.date(year, month, day)
 
     fname = '{}_{}.csv'.format(INVOICE['name'].split()[0], invoice_date.strftime('%Y-%m-%d'))
+    if os.path.exists(fname):
+        print(f'{fname} exists, skipping')
+        return
     with open(fname, 'w') as f:
         w = csv.writer(f)
         w.writerow([
