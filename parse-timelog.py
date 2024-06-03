@@ -95,6 +95,8 @@ for line in timelog_f:
     # a month entry, after which the format is more consistent
     if not month_desc and not line.startswith('== '):
         continue
+    if line.startswith('# '):
+        continue
     if line.startswith('== '):
         month_desc = line[3:-1]
         month_entries = []
