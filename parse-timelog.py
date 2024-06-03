@@ -252,7 +252,8 @@ def print_html_rows(s, b, e):
     for proj, minutes in s:
         # If less than 4h spent on something, put it in the misc projects list
         if proj not in INTERNAL_PROJ_DESC and minutes < ENTRY_COLLAPSE_THRESHOLD:
-            misc_proj['desc'].append(proj)
+            proj_name = PROJ_DESC.get(proj, proj).split(':')[0]
+            misc_proj['desc'].append(proj_name)
             misc_proj['minutes'] += minutes
             continue
         d['amount'] = get_cost(0, minutes)
@@ -333,7 +334,8 @@ def write_csv_rows(s, b, e):
     for proj, minutes in s:
         # If less than 4h spent on something, put it in the misc projects list
         if proj not in INTERNAL_PROJ_DESC and minutes < ENTRY_COLLAPSE_THRESHOLD:
-            misc_proj['proj'].append(proj)
+            proj_name = PROJ_DESC.get(proj, proj).split(':')[0]
+            misc_proj['proj'].append(proj_name)
             misc_proj['minutes'] += minutes
             continue
         quantity = hm_to_h(0, minutes)
