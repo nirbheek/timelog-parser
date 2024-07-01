@@ -370,6 +370,7 @@ def write_csv_rows(s, b, e):
         else:
             acc_code = '464' # Default to electronics
             acc_desc = 'No VAT'
+        desc = desc.replace('¹', '')
         rows.append([desc, unit_amount, quantity, acc_code, acc_desc])
         total_amount += unit_amount * quantity
 
