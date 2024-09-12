@@ -74,6 +74,8 @@ parser.add_argument('--company', '-c', default=False, action='store_true',
                     help='Print income for the company')
 parser.add_argument('--ignore-projects', action=CommaSeparatedList, default=None,
                     help='Ignore this comma-separated list of projects')
+parser.add_argument('--today', default=False, action='store_true',
+                    help='Show time spent today')
 options = parser.parse_args()
 if not options.ignore_projects:
     options.ignore_projects = []
@@ -106,9 +108,13 @@ for line in timelog_f:
         month_entries.append(line[:-1])
 
 month_idx = 0
-if len(timelog_monthly) > 1:
+if options.today:
+    month_idx = -1
+elif len(timelog_monthly) > 1:
     month_idx = options.month_idx - 1
 month_desc, lines = timelog_monthly[month_idx]
+if options.today:
+    lines = lines[-1:]
 # format:
 # {
 #   'project1': hours,
@@ -220,7 +226,9 @@ def print_ascii_table(s):
     total_minutes = 0
     total_cost = 0
     for proj, minutes in s:
-        if options.company and proj in INTERNAL_PROJ_DESC or 'NOT&M' in proj or 'NOTM' in proj:
+        if options.company and proj in INTERNAL_PROJ_DESC:
+            continue
+        if not options.today and ('NOT&M' in proj or 'NOTM' in proj):
             continue
         total_minutes += minutes
         hours, minutes = split_minutes(minutes)
